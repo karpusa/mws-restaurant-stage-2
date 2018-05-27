@@ -24,22 +24,97 @@ class DBHelper {
   }
 
   /**
+   * IDB Integration
+   */
+  static createIDBStore(restaurants) {
+    // Get specific IndexedDB version
+    const indexedDB = window.indexedDB || window.mozIndexedDB || window.webkiteIndexedDB || window.msIndexedDB || window.shimIndexedDB;
+
+    // Open (or create) the database
+    let idb = indexedDB.open("RestaurantDB", 1);
+
+    // Create the schema
+    idb.onupgradeneeded = function() {
+      let db = idb.result;
+      let store = db.createObjectStore("RestaurantStore", { keyPath: "id" });
+      let index = store.createIndex("by-id", "id");
+    };
+
+    idb.onerror = function(err) {
+      console.error(`IndexedDB error: ${err.target.errorCode}`);
+    };
+
+    idb.onsuccess = function() {
+      // Start a new transaction
+      let db = idb.result;
+      let tx = db.transaction("RestaurantStore", "readwrite");
+      let store = tx.objectStore("RestaurantStore");
+      let index = store.index("by-id");
+
+      // Add the restaurant data
+      restaurants.forEach(restaurant => store.put(restaurant));
+
+      tx.oncomplete = function() {
+        db.close();
+      };
+    };
+  }
+
+  /**
+   * Fetch data from IDB when offline
+   */
+  static getCachedData(callback) {
+    let restaurants = [];
+
+    // Get specific IndexedDB version
+    const indexedDB = window.indexedDB || window.mozIndexedDB || window.webkiteIndexedDB || window.msIndexedDB || window.shimIndexedDB;
+
+    // Open (or create) the database
+    let idb = indexedDB.open("RestaurantDB", 1);
+
+    idb.onsuccess = function() {
+      let db = idb.result;
+      let tx = db.transaction("RestaurantStore", "readwrite");
+      let store = tx.objectStore("RestaurantStore");
+      let getData = store.getAll();
+
+      getData.onsuccess = function() {
+        callback(null, getData.result);
+      };
+
+      tx.oncomplete = function() {
+        db.close();
+      };
+    };
+  }
+
+  /**
    * Fetch all restaurants.
    */
   static fetchRestaurants(callback) {
-    let xhr = new XMLHttpRequest();
-    xhr.open('GET', DBHelper.DATABASE_URL);
-    xhr.onload = () => {
-      if (xhr.status === 200) { // Got a success response from server!
-        const json = JSON.parse(xhr.responseText);
-        const restaurants = json.restaurants;
+    if (navigator.onLine) {
+      let xhr = new XMLHttpRequest();
+      xhr.open('GET', DBHelper.DATABASE_URL);
+      xhr.onload = () => {
+        if (xhr.status === 200) { // Got a success response from server!
+          const restaurants = JSON.parse(xhr.responseText);
+          // Cache data
+          DBHelper.createIDBStore(restaurants);
+          callback(null, restaurants);
+        } else { // Oops!. Got an error from server.
+          const error = (`Request failed. Returned status of ${xhr.status}`);
+          callback(error, null);
+        }
+      };
+      xhr.send();
+    } else {
+      console.log(`No connection, fetching cached data`);
+      DBHelper.getCachedData((error, restaurants) => {
+        if(restaurants.length > 0) {
         callback(null, restaurants);
-      } else { // Oops!. Got an error from server.
-        const error = (`Request failed. Returned status of ${xhr.status}`);
-        callback(error, null);
       }
-    };
-    xhr.send();
+    });
+    }
   }
 
   /**
@@ -161,6 +236,9 @@ class DBHelper {
    * Restaurant image URL.
    */
   static imageUrlForRestaurant(restaurant) {
+    if(typeof restaurant.photograph === 'undefined') {
+      return (`/img/no_image.jpg`);
+    }
     return (`/img/${restaurant.photograph}.jpg`);
   }
 
