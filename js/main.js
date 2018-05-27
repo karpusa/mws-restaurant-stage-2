@@ -78,7 +78,8 @@ window.initMap = () => {
   self.map = new google.maps.Map(document.getElementById('map'), {
     zoom: 12,
     center: loc,
-    scrollwheel: false
+    scrollwheel: false,
+    title: 'Google map'
   });
   updateRestaurants();
 }
@@ -128,7 +129,8 @@ fillRestaurantsHTML = (restaurants = self.restaurants) => {
   const ul = document.getElementById('restaurants-list');
   restaurants.forEach(restaurant => {
     ul.append(createRestaurantHTML(restaurant));
-  });
+});
+  DBHelper.lazyLoad();
   addMarkersToMap();
 }
 

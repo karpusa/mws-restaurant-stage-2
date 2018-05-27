@@ -19,7 +19,7 @@ class DBHelper {
    * Change this to restaurants.json file location on your server.
    */
   static get DATABASE_URL() {
-    const port = 1337 // Change this to your server port
+    const port = 1337; // Change this to your server port
     return `http://localhost:${port}/restaurants`;
   }
 
@@ -237,9 +237,20 @@ class DBHelper {
    */
   static imageUrlForRestaurant(restaurant) {
     if(typeof restaurant.photograph === 'undefined') {
-      return (`/img/no_image.jpg`);
+      return ('/dist/img/no_image.webp');
     }
-    return (`/img/${restaurant.photograph}.jpg`);
+    return (`/dist/img/${restaurant.photograph}.webp`);
+  }
+
+  /**
+   * Image Lazy Loader
+   */
+  static lazyLoad() {
+    if(typeof LazyLoad !== 'undefined') {
+      new LazyLoad({
+        elements_selector: '.restaurant-img'
+      });
+    }
   }
 
   /**
